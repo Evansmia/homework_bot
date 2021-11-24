@@ -26,7 +26,8 @@ HOMEWORK_STATUSES = {
 
 
 class AnswerAPIError(Exception):
-    """Ошибка при сбое в работе API"""
+    """Ошибка при сбое в работе API."""
+
     pass
 
 
