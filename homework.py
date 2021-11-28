@@ -25,6 +25,8 @@ HOMEWORK_STATUSES = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
+STATUS_ERROR = 'Статус {status} не установлен.'
+
 
 class AnswerAPIError(Exception):
     """Ошибка при сбое в работе API."""
@@ -50,20 +52,22 @@ def get_api_answer(current_timestamp):
     params = {'from_date': timestamp}
     try:
         response = requests.get(ENDPOINT, params=params, headers=HEADERS)
-        if response.status_code != HTTPStatus.OK:
-            raise Exception('Эндпоинт не отвечает')
-        return response.json()
     except Exception:
         raise AnswerAPIError('Сбои в работе API')
+    if response.status_code == HTTPStatus.OK:
+        response = response.json()
+        return response
+    raise ValueError('Неуспешный запрос')
 
 
 def check_response(response):
     """Функция check_response проверяет ответ API на корректность."""
     if not isinstance(response, dict):
         raise TypeError('Ответ API не словарь')
-    if ['homeworks'][0] not in response:
-        raise IndexError('В ответе API нет домашней работы')
-    homework = response.get('homeworks')[0]
+    if response.get('homeworks') is None:
+        raise KeyError
+    if len(response.get('homeworks')) != 0:
+        homework = response.get('homeworks')[0]
     return homework
 
 
@@ -75,7 +79,7 @@ def parse_status(homework):
             raise KeyError(f'Ожидаемый ключ {key} отсутствует в ответе API')
     homework_status = homework['status']
     if homework_status not in HOMEWORK_STATUSES:
-        raise KeyError('Неизвестный статус домашней работы')
+        raise ValueError(STATUS_ERROR.format(status=homework_status))
     homework_name = homework['homework_name']
     verdict = HOMEWORK_STATUSES[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
@@ -111,8 +115,7 @@ def main():
             if 'homeworks' in response:
                 checked_response = check_response(response)
                 message = parse_status(checked_response)
-                if message is not None:
-                    send_message(bot, message)
+                send_message(bot, message)
             time.sleep(RETRY_TIME)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
