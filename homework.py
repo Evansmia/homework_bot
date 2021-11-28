@@ -84,11 +84,10 @@ def parse_status(homework):
 def check_tokens():
     """Функция check_tokens проверяет доступность переменных окружения."""
     variables = [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]
-    result = True
     for variable in variables:
         if variable is None:
-            result = False
-        return result
+            return False
+        return True
 
 
 def main():
