@@ -69,7 +69,7 @@ def get_api_answer(current_timestamp):
             if error in response:
                 raise RuntimeError
         return response
-    raise ValueError(INVALID_CODE.format(response=response))
+    raise ValueError(INVALID_CODE.format(code=response.status_code))
 
 
 def check_response(response):
