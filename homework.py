@@ -26,10 +26,17 @@ HOMEWORK_STATUSES = {
 }
 
 STATUS_ERROR = 'Статус {status} не установлен.'
+INVALID_CODE = 'Неуспешный запрос.'
 
 
 class AnswerAPIError(Exception):
     """Ошибка при сбое в работе API."""
+
+    pass
+
+
+class CheckResponseError(Exception):
+    """Ошибка при получении пустого списка."""
 
     pass
 
@@ -52,12 +59,17 @@ def get_api_answer(current_timestamp):
     params = {'from_date': timestamp}
     try:
         response = requests.get(ENDPOINT, params=params, headers=HEADERS)
-    except Exception:
-        raise AnswerAPIError('Сбои в работе API')
+    except requests.exceptions.RequestException as error:
+        message = (f'Ошибка соединения {error}')
+        logging.critical(message)
     if response.status_code == HTTPStatus.OK:
         response = response.json()
+        keys = ['code', 'error']
+        for error in keys:
+            if error in response:
+                raise RuntimeError
         return response
-    raise ValueError('Неуспешный запрос')
+    raise ValueError(INVALID_CODE.format(response=response))
 
 
 def check_response(response):
@@ -66,9 +78,10 @@ def check_response(response):
         raise TypeError('Ответ API не словарь')
     if response.get('homeworks') is None:
         raise KeyError
-    if len(response.get('homeworks')) != 0:
+    if response['homeworks'] != 0:
         homework = response.get('homeworks')[0]
-    return homework
+        return homework
+    raise CheckResponseError('Список homeworks пустой')
 
 
 def parse_status(homework):
@@ -110,12 +123,10 @@ def main():
         try:
             check_tokens()
             response = get_api_answer(current_timestamp)
-            if 'current_date' in response:
-                current_timestamp = response['current_date']
-            if 'homeworks' in response:
-                checked_response = check_response(response)
-                message = parse_status(checked_response)
-                send_message(bot, message)
+            current_timestamp = response['current_date']
+            checked_response = check_response(response)
+            message = parse_status(checked_response)
+            send_message(bot, message)
             time.sleep(RETRY_TIME)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
