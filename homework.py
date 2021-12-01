@@ -26,7 +26,9 @@ HOMEWORK_STATUSES = {
 }
 
 STATUS_ERROR = 'Статус {status} не установлен.'
-INVALID_CODE = 'Неуспешный запрос.'
+ANSWER_ERROR = ('code={code}\n'
+                'error={error}\n')
+UNEXPECTED_STATUS = ('status={status}\n')
 
 
 class AnswerAPIError(Exception):
@@ -37,6 +39,12 @@ class AnswerAPIError(Exception):
 
 class CheckResponseError(Exception):
     """Ошибка при получении пустого списка."""
+
+    pass
+
+
+class UnexpectedStatusError(Exception):
+    """Неожидаемый статус запроса к эндпоинту."""
 
     pass
 
@@ -67,9 +75,12 @@ def get_api_answer(current_timestamp):
         keys = ['code', 'error']
         for error in keys:
             if error in response:
-                raise RuntimeError
+                raise AnswerAPIError(ANSWER_ERROR.format(
+                    code=response['code'],
+                    error=response['error']))
         return response
-    raise ValueError(INVALID_CODE.format(code=response.status_code))
+    raise UnexpectedStatusError(
+        UNEXPECTED_STATUS.format(status=response.status_code))
 
 
 def check_response(response):
@@ -78,9 +89,8 @@ def check_response(response):
         raise TypeError('Ответ API не словарь')
     if response.get('homeworks') is None:
         raise KeyError
-    if response['homeworks'] != 0:
-        homework = response.get('homeworks')[0]
-        return homework
+    if response['homeworks']:
+        return response.get('homeworks')[0]
     raise CheckResponseError('Список homeworks пустой')
 
 
@@ -126,7 +136,10 @@ def main():
             current_timestamp = response['current_date']
             checked_response = check_response(response)
             message = parse_status(checked_response)
-            send_message(bot, message)
+            previous_message = None
+            if previous_message != message:
+                send_message(bot, message)
+                previous_message = message
             time.sleep(RETRY_TIME)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
