@@ -126,17 +126,19 @@ def main():
     )
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(time.time()) - RETRY_TIME
+    current_timestamp = int(time.time())
     logger = logging.getLogger(__name__)
-
+    previous_message = None
     while True:
         try:
             check_tokens()
-            response = get_api_answer(ENDPOINT, current_timestamp)
+            response = get_api_answer(current_timestamp)
+            current_timestamp = response['current_date']
             checked_response = check_response(response)
             message = parse_status(checked_response)
-            send_message(bot, message)
-            current_timestamp = response.get('current_date', current_timestamp)
+            if previous_message != message:
+                send_message(bot, message)
+                previous_message = message
             time.sleep(RETRY_TIME)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
